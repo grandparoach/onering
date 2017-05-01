@@ -1,1 +1,671 @@
-This is the main json file
+
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "MasterVMsku": {
+      "type": "string",
+      "defaultValue": "Standard_DS14_v2",
+      "allowedValues": [
+        "Standard_DS1_v2",
+        "Standard_DS2_v2",
+        "Standard_DS3_v2",
+        "Standard_DS4_v2",
+        "Standard_DS5_v2",
+        "Standard_DS11_v2",
+        "Standard_DS12_v2",
+        "Standard_DS13_v2",
+        "Standard_DS14_v2",
+        "Standard_DS15_v2"
+      ],
+      "metadata": {
+        "description": "sku to use for the master VM"
+      }
+    },
+    "masterImage": {
+      "type": "string",
+      "defaultValue": "CentOS_7.2",
+      "allowedValues": [
+        "CentOS_6.7",
+        "CentOS_7.2",
+        "RHEL_7.2",
+        "W2012R2"
+      ],
+      "metadata": {
+        "description": "The VM image of the master nodes"
+      }
+    },
+    "CompNodeVMsku": {
+      "type": "string",
+      "defaultValue": "Standard_H16r",
+      "allowedValues": [
+        "Standard_A8",
+        "Standard_A9",
+        "Standard_D2_v2",
+        "Standard_D3_v2",
+        "Standard_D4_v2",
+        "Standard_D5_v2",
+        "Standard_D11_v2",
+        "Standard_D12_v2",
+        "Standard_D13_v2",
+        "Standard_D14_v2",
+        "Standard_D15_v2",
+        "Standard_DS2_v2",
+        "Standard_DS3_v2",
+        "Standard_DS4_v2",
+        "Standard_DS5_v2",
+        "Standard_DS11_v2",
+        "Standard_DS12_v2",
+        "Standard_DS13_v2",
+        "Standard_DS14_v2",
+        "Standard_DS15_v2",
+        "Standard_F4",
+        "Standard_F8",
+        "Standard_F16",
+        "Standard_F4s",
+        "Standard_F8s",
+        "Standard_F16s",
+        "Standard_H8",
+        "Standard_H16",
+        "Standard_H8m",
+        "Standard_H16m",
+        "Standard_H16r",
+        "Standard_H16mr",
+        "Standard_NC6",
+        "Standard_NC12",
+        "Standard_NC24",
+        "Standard_NC24r"
+      ],
+      "metadata": {
+        "description": "Instance type to use for the compute nodes"
+      }
+    },
+    "computeNodeImage": {
+      "type": "string",
+      "defaultValue": "CentOS-HPC_7.1",
+      "allowedValues": [
+        "CentOS_6.7",
+        "CentOS_7.2",
+        "CentOS-HPC_7.1",
+        "RHEL_7.2",
+        "W2012R2"
+      ],
+      "metadata": {
+        "description": "The VM image of the compute nodes"
+      }
+    },
+    "instanceCountPerVMSS": {
+      "type": "int",
+      "metadata": {
+        "description": "Number of VM instances per Scaleset (100 or less)."
+      },
+      "defaultValue": 2,
+      "maxValue": 100
+    },
+    "vmPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Base string for naming resources (max length of 8)"
+      },
+      "maxLength": 8
+    },
+    "adminUserName": {
+      "type": "string",
+      "metadata": {
+        "description": "User name for the Virtual Machine."
+      }
+    },
+    "authenticationType": {
+      "type": "string",
+      "defaultValue": "password",
+      "allowedValues": [
+        "password",
+        "sshPublicKey"
+      ],
+      "metadata": {
+        "description": "Authentication type for the virtual machines"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Admin password for the virtual machines"
+      }
+    },
+    "sshPublicKey": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "SSH public key that will be included on all nodes. The OpenSSH public key can be generated with tools like ssh-keygen on Linux or OS X."
+      }
+    },
+    "existingVNetName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "name of existing Virtual Network"
+      }
+    },
+    "existingVNetResourceGroup": {
+      "type": "string",
+       "defaultValue": "",
+      "metadata": {
+        "description": "name of Resource Group for existing Virtual Network"
+      }
+    },
+    "existingSubnetName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "name of existing Virtual Network"
+      }
+    },
+    "dataDiskSize": {
+      "type": "int",
+      "defaultValue": 128,
+      "metadata": {
+        "description": "The size in GB of each data disk that is attached to the VM.  A RAID-0 volume is created with all data disks that is dataDiskSize * dataDiskCount in size."
+      }
+    }
+  },
+  "variables": {
+    "location": "[resourceGroup().location]",
+    "namingInfix": "[toLower(substring(concat(parameters('vmPrefix'), uniqueString(resourceGroup().id)), 0, 9))]",
+    "longNamingInfix": "[toLower(parameters('vmPrefix'))]",
+    "newStorageAccountSuffix": "[concat(variables('longNamingInfix'), 'sa')]",
+    "virtualNetworkName": "[parameters('existingVNetName')]",
+    "vnetID": "[resourceId(parameters('existingVNetResourceGroup'), 'Microsoft.Network/virtualNetworks', parameters('existingVNetName'))]",
+    "infraSubnetRef": "[concat(variables('vnetID'),'/subnets/', parameters('existingSubnetName'))]",
+    "networkSettings": {
+      "virtualNetworkName": "[variables('virtualNetworkName')]",
+      "infraSubnetRef": "[variables('infraSubnetRef')]"
+    },
+    "masterBoxName": "[concat(variables('longNamingInfix'), 'master')]",
+    "masterSettings": {
+      "Name": "[variables('masterBoxName')]",
+      "SAType": "Premium_LRS",
+      "SAName": "[concat(uniqueString(concat(resourceGroup().id, variables('newStorageAccountSuffix'), 'masterboxsa')), 'master')]",
+      "DiagSAName": "[concat(uniqueString(concat(resourceGroup().id, variables('newStorageAccountSuffix'), 'masterboxsadiag')), 'diag')]",
+      "OSDiskName": "[concat(variables('masterBoxName'), 'osdisk')]",
+      "VHDContainerName": "[concat(variables('masterBoxName'), 'vhd')]",
+      "IPConfigName": "[concat(variables('masterBoxName'), 'ipconfig')]",
+      "NicName": "[concat(variables('masterBoxName'), 'nic')]",
+      "VMsku": "[parameters('VMsku')]",
+      "sharedStorage": "[parameters('sharedStorage')]",
+      "scheduler": "[parameters('scheduler')]",
+      "dataDiskSize": "[parameters('dataDiskSize')]"
+    },
+    "masterOSSettings": {
+      "osType": "[variables('osTypes')[parameters('masterImage')]]",
+      "adminUserName": "[parameters('adminUserName')]",
+      "authenticationType": "[parameters('authenticationType')]",
+      "adminPassword": "[parameters('adminPassword')]",
+      "sshPublicKey": "[parameters('sshPublicKey')]",
+      "imageReference": "[variables('computeImages')[parameters('masterImage')]]"
+    },
+    "sshKeyPath": "[concat('/home/',parameters('adminUserName'),'/.ssh/authorized_keys')]",
+    "osTypes": {
+      "CentOS_6.7": {
+        "os": "linux"
+      },
+      "CentOS_7.2": {
+        "os": "linux"
+      },
+      "CentOS-HPC_7.1": {
+        "os": "linux"
+      },
+      "RHEL_7.2": {
+        "os": "linux"
+      },
+      "W2012R2": {
+        "os": "windows"
+      }
+    },
+    "computeImages": {
+      "CentOS_6.7": {
+        "publisher": "OpenLogic",
+        "offer": "CentOS",
+        "sku": "6.7",
+        "version": "latest"
+      },
+      "CentOS_7.2": {
+        "publisher": "OpenLogic",
+        "offer": "CentOS",
+        "sku": "7.2",
+        "version": "latest"
+      },
+      "CentOS-HPC_7.1": {
+        "publisher": "OpenLogic",
+        "offer": "CentOS-HPC",
+        "sku": "7.1",
+        "version": "latest"
+      },
+      "RHEL_7.2": {
+        "publisher": "RedHat",
+        "offer": "RHEL",
+        "sku": "7.2",
+        "version": "latest"
+      },
+      "W2012R2": {
+        "publisher": "MicrosoftWindowsServer",
+        "offer": "WindowsServer",
+        "sku": "2012-R2-Datacenter",
+        "version": "latest"
+      }
+    },
+     "computeNodeImages": {
+      "CentOS_6.7": {
+        "publisher": "OpenLogic",
+        "offer": "CentOS",
+        "sku": "6.7",
+        "version": "latest"
+      },
+      "CentOS-HPC_7.1": {
+        "publisher": "OpenLogic",
+        "offer": "CentOS-HPC",
+        "sku": "7.1",
+        "version": "latest"
+      },
+      "CentOS_7.2": {
+        "publisher": "OpenLogic",
+        "offer": "CentOS",
+        "sku": "7.2",
+        "version": "latest"
+      },
+      "RHEL_7.2": {
+        "publisher": "RedHat",
+        "offer": "RHEL",
+        "sku": "7.2",
+        "version": "latest"
+      },
+      "W2012R2": {
+        "publisher": "MicrosoftWindowsServer",
+        "offer": "WindowsServer",
+        "sku": "2012-R2-Datacenter",
+        "version": "latest"
+      }
+    },
+    "master-sharedTemplateUrl": "https://raw.githubusercontent.com/grandparoach/azure-hpc/existingVNet/Compute-Grid-Infra/master-shared-resources.json",
+    "master-OSTemplateUrl": "https://raw.githubusercontent.com/grandparoach/azure-hpc/existingVNet/Compute-Grid-Infra/master-linux-resources.json",
+    "linuxConfiguration_sshPublicKey": {
+      "disablePasswordAuthentication": "true",
+      "ssh": {
+        "publicKeys": [
+          {
+            "path": "[variables('sshKeyPath')]",
+            "keyData": "[parameters('masterOSSettings').sshPublicKey]"
+          }
+        ]
+      }
+    },
+    "linuxConfiguration_password": { },
+    "linuxConfiguration": "[variables(concat('linuxConfiguration_',parameters('masterOSSettings').authenticationType))]",
+    "gangliaTemplateURI": "[uri(deployment().properties.templateLink.uri, 'Ganglia/ganglia.json')]",
+    "masterScriptTemplateURI": "[uri(deployment().properties.templateLink.uri, 'master-linux-script.json')]",
+    "computeApiVersion": "2016-03-30",
+    "deploymentApiVersion": "2016-09-01",
+    "newVMSSStorageAccountSuffix": "[toLower(parameters('vmSSPrefix'))]",
+    "nodeSettings": {
+      "VMsku": "[parameters('VMsku')]",
+      "vnetRG": "[parameters('RGvnetName')]",
+      "vnetName": "grid-vnet",
+      "subnetName": "computeSubnet",
+      "MasterName": "[parameters('masterName')]",
+      "storageAccountType": "Standard_LRS",
+      "sharedStorage": "[parameters('sharedStorage')]",
+      "scheduler": "[parameters('scheduler')]"
+    },
+    
+    "nodeOSSettings": {
+      "osType": "[variables('osTypes')[parameters('computeNodeImage')]]",
+      "adminUserName": "[parameters('adminUserName')]",
+      "sshKeyData": "[parameters('sshKeyData')]",
+      "imageReference": "[variables('computeNodeImages')[parameters('computeNodeImage')]]"
+    },
+    "node-OSTemplateUrl": "[uri(deployment().properties.templateLink.uri, concat('nodes-', variables('nodeOSSettings').osType.os,'-resources-md.json'))]",
+    "vmssnamingInfix": "[toLower(take(concat(parameters('vmssName'), uniqueString(resourceGroup().id)), 9))]",
+    "nicName": "[concat(variables('vmssnamingInfix'), 'nic')]",
+    "ipConfigName": "[concat(variables('vmssnamingInfix'), 'ipconfig')]",
+    "networkApiVersion": "2016-03-30",
+    "ScriptsOptions": {
+      "none": {
+        "params": ""
+      },
+      "beegfs": {
+        "params": " -S beegfs"
+      },
+      "pbspro": {
+        "params": " -s pbspro"
+      },
+      "master": {
+        "params": "[concat(' -m ', parameters('nodeSettings').MasterName)]"
+      }
+    },
+    "cnSetupScript": "cn-setup.sh",
+    "vmScripts": {
+      "scriptsToDownload": [
+        "[uri(deployment().properties.templateLink.uri, variables('cnSetupScript'))]"
+      ],
+      "commandToExecute": "[concat('bash ', variables('cnSetupScript'), variables('ScriptsOptions')['master'].params, variables('ScriptsOptions')[parameters('nodeSettings').scheduler].params, variables('ScriptsOptions')[parameters('nodeSettings').sharedStorage].params)]"
+    }
+  },  
+
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[variables('masterSettings').SAName]",
+      "location": "[variables('location')]",
+      "apiVersion": "[variables('storageApiVersion')]",
+      "properties": {
+        "accountType": "[variables('masterSettings').SAType]"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[variables('masterSettings').DiagSAName]",
+      "location": "[variables('location')]",
+      "apiVersion": "[variables('storageApiVersion')]",
+      "properties": {
+        "accountType": "Standard_LRS"
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('masterSettings').NicName]",
+      "location": "[variables('location')]",
+      "apiVersion": "[variables('networkApiVersion')]",
+      
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "[variables('masterSettings').IPConfigName]",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              
+              "subnet": {
+                "id": "[variables('infraSubnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('masterBoxName')]",
+      "location": "[variables('location')]",
+      "apiVersion": "[variables('computeApiVersion')]",
+      "dependsOn": [
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('MasterVMsku')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('masterSettings').Name]",
+          "adminUsername": "[parameters('adminUserName')]",
+          "adminPassword": "[parameters('adminPassword')]",
+          "linuxConfiguration": "[variables('linuxConfiguration')]"
+        },
+        "storageProfile": {
+          "imageReference": "[variables('masterOSSettings').imageReference]",
+          "osDisk": {
+            "name": "[variables('masterSettings').OSDiskName]",
+            "vhd": {
+              "uri": "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/',variables('masterSettings').OSDiskName,'.vhd')]"
+            },
+            "caching": "ReadOnly",
+            "createOption": "FromImage"
+          },
+          "dataDisks": [ 
+            { 
+            "name": "datadisk0", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 0, 
+            "vhd": { 
+              "uri": "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk0.vhd')]"
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk1", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 1, 
+            "vhd": { 
+              "uri": "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk1.vhd')]"
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk2", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 2, 
+            "vhd": { 
+              "uri": "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk2.vhd')]"
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk3", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 3, 
+            "vhd": { 
+              "Uri":  "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk3.vhd')]"
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk4", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 4, 
+            "vhd": { 
+              "Uri":  "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk4.vhd')]" 
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk5", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 5, 
+            "vhd": { 
+              "Uri":  "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk5.vhd')]"
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk6", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 6, 
+            "vhd": { 
+              "Uri":  "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk6.vhd')]"
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk7", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 7, 
+            "vhd": { 
+              "Uri":  "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk7.vhd')]"
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk8", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 8, 
+            "vhd": { 
+              "Uri":  "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk8.vhd')]" 
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk9", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 9, 
+            "vhd": { 
+              "Uri":  "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk9.vhd')]"
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk10", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 10, 
+            "vhd": { 
+              "Uri":  "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk10.vhd')]"
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk11", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 11, 
+            "vhd": { 
+              "Uri":  "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk11.vhd')]"
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk12", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 12, 
+            "vhd": { 
+              "Uri":  "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk12.vhd')]"
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk13", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 13, 
+            "vhd": { 
+              "Uri":  "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk13.vhd')]" 
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk14", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 14, 
+            "vhd": { 
+              "Uri": "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk14.vhd')]"
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }, 
+            { 
+            "name": "datadisk15", 
+            "diskSizeGB": "[variables('masterSettings').dataDiskSize]", 
+            "lun": 15, 
+            "vhd": { 
+              "Uri":  "[concat('http://',variables('masterSettings').SAName,'.blob.core.windows.net/',variables('masterSettings').VHDContainerName,'/datadisk15.vhd')]"
+              }, 
+            "caching": "ReadWrite", 
+            "createOption": "Empty" 
+            }
+          ]
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('masterSettings').NicName)]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": "true",
+            "storageUri": "[concat('http://',variables('masterSettings').DiagSAName,'.blob.core.windows.net')]"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachineScaleSets",
+      "name": "[parameters('vmssName')]",
+      "location": "[variables('location')]",
+      "apiVersion": "[variables('computeApiVersion')]",
+      "sku": {
+        "name": "[parameters('nodeSettings').VMsku]",
+        "tier": "Standard",
+        "capacity": "[parameters('instanceCount')]"
+      },
+      "properties": {
+        "overprovision": "true",
+        "upgradePolicy": {
+          "mode": "Manual"
+        },
+        "virtualMachineProfile": {
+          "networkProfile": {
+            "networkInterfaceConfigurations": [
+              {
+                "name": "[variables('nicName')]",
+                "properties": {
+                  "primary": "true",
+                  "ipConfigurations": [
+                    {
+                      "name": "[variables('ipConfigName')]",
+                      "properties": {
+                        "subnet": {
+                          "id": "[variables('subnetRef')]"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "osProfile": {
+            "computerNamePrefix": "[variables('vmssnamingInfix')]",
+            "adminUsername": "[parameters('adminUserName')]",
+            "adminPassword": "[parameters('adminPassword')]",
+            "linuxConfiguration": "[variables('linuxConfiguration')]"
+          },
+          "storageProfile": {
+            "imageReference": "[parameters('nodeOSSettings').imageReference]",
+            "osDisk": {
+              "createOption": "FromImage",
+              "caching": "ReadOnly"
+            },
+            "dataDisks": []
+          },
+          "extensionProfile": {
+            "extensions": [
+              {
+                "name": "installCN",
+                "properties": {
+                  "publisher": "Microsoft.Azure.Extensions",
+                  "type": "CustomScript",
+                  "typeHandlerVersion": "2.0",
+                  "autoUpgradeMinorVersion": true,
+                  "settings": {
+                    "fileUris": "[variables('vmScripts').scriptsToDownload]",
+                    "commandToExecute": "[variables('vmScripts').commandToExecute]",
+                    "timestamp": 12345
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
