@@ -1,4 +1,5 @@
 
+
 {
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
@@ -302,7 +303,7 @@
     "masterScriptTemplateURI": "[uri(deployment().properties.templateLink.uri, 'master-linux-script.json')]",
     "computeApiVersion": "2016-03-30",
     "deploymentApiVersion": "2016-09-01",
-    "newVMSSStorageAccountSuffix": "[toLower(parameters('vmSSPrefix'))]",
+    "newVMSSStorageAccountSuffix": "[toLower(parameters('vmPrefix'))]",
     "nodeSettings": {
       "CompNodeVMsku": "[parameters('CompNodeVMsku')]",
       "virtualNetworkName": "[parameters('existingVNetName')]",
