@@ -333,7 +333,7 @@
         "params": " -s pbspro"
       },
       "master": {
-        "params": "[concat(' -m ', parameters('nodeSettings').MasterName)]"
+        "params": "[concat(' -m ', variables('nodeSettings').MasterName)]"
       }
     },
     "cnSetupScript": "cn-setup.sh",
