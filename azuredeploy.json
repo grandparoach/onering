@@ -302,7 +302,7 @@
     "deploymentApiVersion": "2016-09-01",
     "newVMSSStorageAccountSuffix": "[toLower(parameters('vmPrefix'))]",
     "nodeSettings": {
-      "CompNodeVMsku": "[parameters('CompNodeVMsku')]",
+      "VMsku": "[parameters('CompNodeVMsku')]",
       "virtualNetworkName": "[parameters('existingVNetName')]",
       "vnetID": "[resourceId(parameters('existingVNetResourceGroup'), 'Microsoft.Network/virtualNetworks', parameters('existingVNetName'))]",
       "infraSubnetRef": "[concat(variables('vnetID'),'/subnets/', parameters('existingSubnetName'))]",
