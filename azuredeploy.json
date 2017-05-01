@@ -307,9 +307,6 @@
       "virtualNetworkName": "[parameters('existingVNetName')]",
       "vnetID": "[resourceId(parameters('existingVNetResourceGroup'), 'Microsoft.Network/virtualNetworks', parameters('existingVNetName'))]",
       "infraSubnetRef": "[concat(variables('vnetID'),'/subnets/', parameters('existingSubnetName'))]",
-      "vnetRG": "[parameters('RGvnetName')]",
-      "vnetName": "grid-vnet",
-      "subnetName": "computeSubnet",
       "MasterName": "[parameters('masterName')]",
       "storageAccountType": "Standard_LRS"
     },
@@ -666,3 +663,4 @@
     }
   ]
 }
+
