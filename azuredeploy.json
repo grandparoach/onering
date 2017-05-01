@@ -191,8 +191,6 @@
       "IPConfigName": "[concat(variables('masterBoxName'), 'ipconfig')]",
       "NicName": "[concat(variables('masterBoxName'), 'nic')]",
       "MasterVMsku": "[parameters('MasterVMsku')]",
-      "sharedStorage": "[parameters('sharedStorage')]",
-      "scheduler": "[parameters('scheduler')]",
       "dataDiskSize": "[parameters('dataDiskSize')]"
     },
     "masterOSSettings": {
@@ -314,9 +312,7 @@
       "vnetName": "grid-vnet",
       "subnetName": "computeSubnet",
       "MasterName": "[parameters('masterName')]",
-      "storageAccountType": "Standard_LRS",
-      "sharedStorage": "[parameters('sharedStorage')]",
-      "scheduler": "[parameters('scheduler')]"
+      "storageAccountType": "Standard_LRS"
     },
     
     "nodeOSSettings": {
@@ -349,7 +345,7 @@
       "scriptsToDownload": [
         "[uri(deployment().properties.templateLink.uri, variables('cnSetupScript'))]"
       ],
-      "commandToExecute": "[concat('bash ', variables('cnSetupScript'), variables('ScriptsOptions')['master'].params, variables('ScriptsOptions')[parameters('nodeSettings').scheduler].params, variables('ScriptsOptions')[parameters('nodeSettings').sharedStorage].params)]"
+      "commandToExecute": "[concat('bash ', variables('cnSetupScript'))]"
     }
   },  
 
