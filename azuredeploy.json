@@ -128,7 +128,6 @@
     },
     "adminPassword": {
       "type": "securestring",
-      "defaultValue": "",
       "metadata": {
         "description": "Admin password for the virtual machines"
       }
@@ -191,7 +190,7 @@
       "VHDContainerName": "[concat(variables('masterBoxName'), 'vhd')]",
       "IPConfigName": "[concat(variables('masterBoxName'), 'ipconfig')]",
       "NicName": "[concat(variables('masterBoxName'), 'nic')]",
-      "VMsku": "[parameters('VMsku')]",
+      "MasterVMsku": "[parameters('MasterVMsku')]",
       "sharedStorage": "[parameters('sharedStorage')]",
       "scheduler": "[parameters('scheduler')]",
       "dataDiskSize": "[parameters('dataDiskSize')]"
@@ -307,7 +306,10 @@
     "deploymentApiVersion": "2016-09-01",
     "newVMSSStorageAccountSuffix": "[toLower(parameters('vmSSPrefix'))]",
     "nodeSettings": {
-      "VMsku": "[parameters('VMsku')]",
+      "CompNodeVMsku": "[parameters('CompNodeVMsku')]",
+      "virtualNetworkName": "[parameters('existingVNetName')]",
+      "vnetID": "[resourceId(parameters('existingVNetResourceGroup'), 'Microsoft.Network/virtualNetworks', parameters('existingVNetName'))]",
+      "infraSubnetRef": "[concat(variables('vnetID'),'/subnets/', parameters('existingSubnetName'))]",
       "vnetRG": "[parameters('RGvnetName')]",
       "vnetName": "grid-vnet",
       "subnetName": "computeSubnet",
@@ -602,7 +604,7 @@
       "location": "[variables('location')]",
       "apiVersion": "[variables('computeApiVersion')]",
       "sku": {
-        "name": "[parameters('nodeSettings').VMsku]",
+        "name": "[variables('nodeSettings').VMsku]",
         "tier": "Standard",
         "capacity": "[parameters('instanceCount')]"
       },
@@ -623,7 +625,7 @@
                       "name": "[variables('ipConfigName')]",
                       "properties": {
                         "subnet": {
-                          "id": "[variables('subnetRef')]"
+                            "id": "[variables('infraSubnetRef')]"
                         }
                       }
                     }
@@ -639,7 +641,7 @@
             "linuxConfiguration": "[variables('linuxConfiguration')]"
           },
           "storageProfile": {
-            "imageReference": "[parameters('nodeOSSettings').imageReference]",
+            "imageReference": "[variables('nodeOSSettings').imageReference]",
             "osDisk": {
               "createOption": "FromImage",
               "caching": "ReadOnly"
