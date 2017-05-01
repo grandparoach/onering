@@ -307,7 +307,7 @@
       "virtualNetworkName": "[parameters('existingVNetName')]",
       "vnetID": "[resourceId(parameters('existingVNetResourceGroup'), 'Microsoft.Network/virtualNetworks', parameters('existingVNetName'))]",
       "infraSubnetRef": "[concat(variables('vnetID'),'/subnets/', parameters('existingSubnetName'))]",
-      "MasterName": "[parameters('masterName')]",
+      "MasterName": "[variables('masterBoxName')]",
       "storageAccountType": "Standard_LRS"
     },
     
@@ -341,7 +341,7 @@
       "scriptsToDownload": [
         "[uri(deployment().properties.templateLink.uri, variables('cnSetupScript'))]"
       ],
-      "commandToExecute": "[concat('bash ', variables('cnSetupScript'))]"
+      "commandToExecute": "[concat('bash ', variables('cnSetupScript'), variables('masterBoxName'))]"
     }
   },  
 
