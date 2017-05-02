@@ -1,28 +1,16 @@
 #!/bin/bash
 
-#############################################################################
-log()
-{
-	echo "$1"
-}
+set -x
 
-while getopts :a:k:u:t:p optname; do
-  log "Option $optname set with value ${OPTARG}"
-  
-  case $optname in
-    a)  # storage account
-		export AZURE_STORAGE_ACCOUNT=${OPTARG}
-		;;
-    k)  # storage key
-		export AZURE_STORAGE_ACCESS_KEY=${OPTARG}
-		;;
-  esac
-done
+if [[ $(id -u) -ne 0 ]] ; then
+    echo "Must be run as root"
+    exit 1
+fi
+
 
 # Shares
 SHARE_HOME=/share/home
-SHARE_SCRATCH=/share/scratch
-SHARE_APPS=/share/apps
+NFS_DATA=/share/data
 
 # User
 HPC_USER=hpcuser
@@ -32,14 +20,100 @@ HPC_GID=7007
 
 MASTER_NAME=`hostname`
 
-setup_disks()
-{
-    mkdir -p $SHARE_HOME
-    mkdir -p $SHARE_SCRATCH
-	mkdir -p $SHARE_APPS
 
-	chown $HPC_USER:$HPC_GROUP $SHARE_APPS
+
+# Installs all required packages.
+#
+install_pkgs()
+{
+	yum -y install nfs-utils nfs-utils-lib
 }
+
+
+
+# Partitions all data disks attached to the VM 
+#
+setup_data_disks()
+{
+    mountPoint="$1"
+    filesystem="$2"
+    devices="$3"
+    raidDevice="$4"
+    createdPartitions=""
+
+    # Loop through and partition disks until not found
+    for disk in $devices; do
+        fdisk -l /dev/$disk || break
+        fdisk /dev/$disk << EOF
+n
+p
+1
+
+
+p
+w
+EOF
+        createdPartitions="$createdPartitions /dev/${disk}1"
+    done
+    
+    sleep 10
+
+# Create RAID-0 volume
+    if [ -n "$createdPartitions" ]; then
+        devices=`echo $createdPartitions | wc -w`
+        mdadm --create /dev/md10 --level 0 --raid-devices $devices $createdPartitions
+        mkfs -t ext4 /dev/md10
+        echo "/dev/md10 $mountPoint ext4 defaults,nofail 0 2" >> /etc/fstab
+        mount /dev/md10
+    fi
+
+#	mkfs -t $filesystem $createdPartitions
+#	echo "$createdPartitions $mountPoint $filesystem defaults,nofail 0 2" >> /etc/fstab
+	
+#	mount $createdPartitions
+}
+
+setup_disks()
+{      
+    # Dump the current disk config for debugging
+    fdisk -l
+    
+    # Dump the scsi config
+    lsscsi
+    
+    # Get the root/OS disk so we know which device it uses and can ignore it later
+    rootDevice=`mount | grep "on / type" | awk '{print $1}' | sed 's/[0-9]//g'`
+    
+    # Get the TMP disk so we know which device and can ignore it later
+    tmpDevice=`mount | grep "on /mnt/resource type" | awk '{print $1}' | sed 's/[0-9]//g'`
+
+    # Get the data disk sizes from fdisk, we ignore the disks above
+    dataDiskSize=`fdisk -l | grep '^Disk /dev/' | grep -v $rootDevice | grep -v $tmpDevice | awk '{print $3}' | sort -n -r | tail -1`
+
+	# Compute number of disks
+	nbDisks=`fdisk -l | grep '^Disk /dev/' | grep -v $rootDevice | grep -v $tmpDevice | wc -l`
+	echo "nbDisks=$nbDisks"
+	
+	dataDevices="`fdisk -l | grep '^Disk /dev/' | grep $dataDiskSize | awk '{print $2}' | awk -F: '{print $1}' | sort | head -$nbDisks | tr '\n' ' ' | sed 's|/dev/||g'`"
+
+	mkdir -p $NFS_DATA
+	setup_data_disks $NFS_DATA "xfs" "$dataDevices" "nfsdata"
+
+    chown $HPC_USER:$HPC_GROUP $NFS_DATA
+	
+	echo "$NFS_DATA    *(rw,async)" >> /etc/exports
+
+    echo "$SHARE_HOME  *(rw,async)" >> /etc/exports
+    
+    systemctl enable rpcbind || echo "Already enabled"
+    systemctl enable nfs-server || echo "Already enabled"
+    systemctl start rpcbind || echo "Already enabled"
+    systemctl start nfs-server || echo "Already enabled"
+	exportfs
+	exportfs -a
+	exportfs 
+}
+
 
 setup_user()
 {
@@ -81,84 +155,12 @@ setup_user()
 	chown $HPC_USER:$HPC_GROUP $SHARE_SCRATCH
 }
 
-mount_nfs()
-{
-	log "install NFS"
 
-	yum -y install nfs-utils nfs-utils-lib
-
-    echo "$SHARE_HOME    *(rw,async)" >> /etc/exports
-    systemctl enable rpcbind || echo "Already enabled"
-    systemctl enable nfs-server || echo "Already enabled"
-    systemctl start rpcbind || echo "Already enabled"
-    systemctl start nfs-server || echo "Already enabled"
-		
-}
-
-######################################################################
-install_azure_cli()
-{
-	curl --silent --location https://rpm.nodesource.com/setup_4.x | bash -
-	yum -y install nodejs
-
-	[[ -z "$HOME" || ! -d "$HOME" ]] && { echo 'fixing $HOME'; HOME=/root; } 
-	export HOME
-	
-	npm install -g azure-cli
-	azure telemetry --disable
-}
-
-######################################################################
-install_azure_files()
-{
-	log "install samba and cifs utils"
-	yum -y install samba-client samba-common cifs-utils
-	mkdir /mnt/azure
-	
-	#log "create azure share"
-	#azure storage share create --share lsf #-a $SA_NAME -k $SA_KEY
-	
-	log "mount share"
-	mount -t cifs //$AZURE_STORAGE_ACCOUNT.file.core.windows.net/lsf /mnt/azure -o vers=3.0,username=$AZURE_STORAGE_ACCOUNT,password=''${AZURE_STORAGE_ACCESS_KEY}'',dir_mode=0777,file_mode=0777
-	echo //$AZURE_STORAGE_ACCOUNT.file.core.windows.net/lsf /mnt/azure cifs vers=3.0,username=$AZURE_STORAGE_ACCOUNT,password=''${AZURE_STORAGE_ACCESS_KEY}'',dir_mode=0777,file_mode=0777 >> /etc/fstab
-	
-}
-
-install_beegfs()
-{
-	yum -y install wget
-    wget -O install_beegfs_mgmt.sh https://raw.githubusercontent.com/xpillons/azure-hpc/master/Compute-Grid-Infra/BeeGFS/install_beegfs_mgmt.sh
-    wget -O install_beegfs_client.sh https://raw.githubusercontent.com/xpillons/azure-hpc/master/Compute-Grid-Infra/BeeGFS/install_beegfs_client.sh
-
-	bash install_beegfs_mgmt.sh ${MASTER_NAME}
-	bash install_beegfs_client.sh ${MASTER_NAME}
-}
-
-install_ganglia()
-{
-	yum -y install wget
-    wget -O install_gmond.sh https://raw.githubusercontent.com/xpillons/azure-hpc/master/Compute-Grid-Infra/Ganglia/install_gmond.sh
-    wget -O install_gmetad.sh https://raw.githubusercontent.com/xpillons/azure-hpc/master/Compute-Grid-Infra/Ganglia/install_gmetad.sh
-	bash install_gmetad.sh
-	bash install_gmond.sh ${MASTER_NAME} "Master" 8649
-}
-
-SETUP_MARKER=/var/tmp/master-setup.marker
-if [ -e "$SETUP_MARKER" ]; then
-    echo "We're already configured, exiting..."
-    exit 0
-fi
-
-#install_azure_cli
-#install_azure_files
-setup_disks
-mount_nfs
 setup_user
-#install_ganglia
-#install_beegfs
+install_pkgs
+setup_disks
 
-# Create marker file so we know we're configured
-touch $SETUP_MARKER
 
-shutdown -r +1 &
 exit 0
+
+
