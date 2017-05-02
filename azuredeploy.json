@@ -599,7 +599,7 @@
         "capacity": "[parameters('instanceCountPerVMSS')]"
       },
       "properties": {
-        "overprovision": "true",
+        "overprovision": "false",
         "upgradePolicy": {
           "mode": "Manual"
         },
