@@ -630,7 +630,7 @@
       "type": "Microsoft.Compute/virtualMachineScaleSets",
       "name": "[parameters('vmPrefix')]",
       "location": "[variables('location')]",
-      "apiVersion": "[variables('computeApiVersion')]",
+      "apiVersion": "2016-04-30-preview",
       "sku": {
         "name": "[variables('nodeSettings').VMsku]",
         "tier": "Standard",
@@ -668,14 +668,15 @@
             "adminPassword": "[parameters('adminPassword')]",
             "linuxConfiguration": "[variables('linuxConfiguration')]"
           },
-
           "storageProfile": {
             "imageReference": "[variables('nodeOSSettings').imageReference]",  
             "osDisk": {
               "caching": "ReadOnly",
-              "createOption": "FromImage"
+              "createOption": "FromImage",
+              "managedDisk": {
+                "storageAccountType": "Standard_LRS"
+             }
             }
-            
           },
           "extensionProfile": {
             "extensions": [
