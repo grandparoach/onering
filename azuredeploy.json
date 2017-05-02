@@ -290,8 +290,6 @@
         "version": "latest"
       }
     },
-    "master-sharedTemplateUrl": "https://raw.githubusercontent.com/grandparoach/azure-hpc/existingVNet/Compute-Grid-Infra/master-shared-resources.json",
-    "master-OSTemplateUrl": "https://raw.githubusercontent.com/grandparoach/azure-hpc/existingVNet/Compute-Grid-Infra/master-linux-resources.json",
     "linuxConfiguration_sshPublicKey": {
       "disablePasswordAuthentication": "true",
       "ssh": {
@@ -339,20 +337,6 @@
       "master": {
         "params": "[concat(' -m ', variables('nodeSettings').MasterName)]"
       }
-    },
-    "mastervmScripts": {
-      "scriptsToDownload": [
-        "https://raw.githubusercontent.com/grandparoach/onering/master/master-setup.sh"
-      ],
-      "commandToExecute": "bash master-setup.sh"
-    },
-    "extensionApiVersion": "2015-06-15",
-    "cnSetupScript": "cn-setup.sh",
-    "vmScripts": {
-      "scriptsToDownload": [
-        "https://raw.githubusercontent.com/grandparoach/onering/master/cn-setup.sh"
-      ],
-      "commandToExecute": "[concat('bash ', variables('cnSetupScript'), variables('masterBoxName'))]"
     }
   },  
 
@@ -605,28 +589,6 @@
       }
     },
     {
-      "type": "Microsoft.Compute/virtualMachines/extensions",
-      "name": "[concat(variables('masterSettings').Name, '/ext')]",
-      "apiVersion": "[variables('extensionApiVersion')]",
-      "location": "[resourceGroup().location]",
-      "dependsOn": [
-        "[concat('Microsoft.Compute/virtualMachines/', variables('masterSettings').Name)]"
-      ],
-      "properties": {
-        "publisher": "Microsoft.Azure.Extensions",
-        "type": "CustomScript",
-        "typeHandlerVersion": "2.0",
-        "autoUpgradeMinorVersion": true,
-        "settings": {
-          "fileUris": "[variables('mastervmScripts').scriptsToDownload]",
-          "timestamp": 12
-        },
-        "protectedSettings": {
-          "commandToExecute": "[variables('mastervmScripts').commandToExecute]"
-        }
-      }
-    },
-    {
       "type": "Microsoft.Compute/virtualMachineScaleSets",
       "name": "[parameters('vmPrefix')]",
       "location": "[variables('location')]",
@@ -677,24 +639,6 @@
                 "storageAccountType": "Standard_LRS"
              }
             }
-          },
-          "extensionProfile": {
-            "extensions": [
-              {
-                "name": "installCN",
-                "properties": {
-                  "publisher": "Microsoft.Azure.Extensions",
-                  "type": "CustomScript",
-                  "typeHandlerVersion": "2.0",
-                  "autoUpgradeMinorVersion": true,
-                  "settings": {
-                    "fileUris": "[variables('vmScripts').scriptsToDownload]",
-                    "commandToExecute": "[variables('vmScripts').commandToExecute]",
-                    "timestamp": 12345
-                  }
-                }
-              }
-            ]
           }
         }
       }
