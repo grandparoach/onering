@@ -606,11 +606,11 @@
     },
     {
       "type": "Microsoft.Compute/virtualMachines/extensions",
-      "name": "[concat(variables('masterBoxName'), '/ext')]",
+      "name": "[concat(variables('masterSettings').Name, '/ext')]",
       "apiVersion": "[variables('extensionApiVersion')]",
       "location": "[resourceGroup().location]",
       "dependsOn": [
-        "[concat('Microsoft.Compute/virtualMachines/', variables('masterBoxName')]"
+        "[concat('Microsoft.Compute/virtualMachines/', variables('masterSettings').Name)]"
       ],
       "properties": {
         "publisher": "Microsoft.Azure.Extensions",
