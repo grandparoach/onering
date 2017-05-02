@@ -334,10 +334,17 @@
         "params": "[concat(' -m ', variables('nodeSettings').MasterName)]"
       }
     },
+    "mastervmScripts": {
+      "scriptsToDownload": [
+        "https://raw.githubusercontent.com/grandparoach/onering/master/master-setup.sh"
+      ],
+      "commandToExecute": "bash master-setup.sh"
+    },
+    "extensionApiVersion": "2015-06-15",
     "cnSetupScript": "cn-setup.sh",
     "vmScripts": {
       "scriptsToDownload": [
-        "https://raw.githubusercontent.com/grandparoach/onering/master/master-setup.sh"
+        "https://raw.githubusercontent.com/grandparoach/onering/master/cn-setup.sh"
       ],
       "commandToExecute": "[concat('bash ', variables('cnSetupScript'), variables('masterBoxName'))]"
     }
@@ -585,6 +592,25 @@
             "enabled": "true",
             "storageUri": "[concat('http://',variables('masterSettings').DiagSAName,'.blob.core.windows.net')]"
           }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('masterBoxName'), '/ext')]",
+      "apiVersion": "[variables('extensionApiVersion')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publisher": "Microsoft.Azure.Extensions",
+        "type": "CustomScript",
+        "typeHandlerVersion": "2.0",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "fileUris": "[variables('mastervmScripts').scriptsToDownload]",
+          "timestamp": 12
+        },
+        "protectedSettings": {
+          "commandToExecute": "[variables('mastervmScripts').commandToExecute]"
         }
       }
     },
