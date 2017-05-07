@@ -122,7 +122,9 @@ setup_user()
     setenforce permissive
     
     groupadd -g $HPC_GID $HPC_GROUP
-
+    mkdir -p $SHARE_HOME
+    mkdir -p $SHARE_HOME/$HPC_USER
+    
     # Don't require password for HPC user sudo
     echo "$HPC_USER ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
     
@@ -132,7 +134,7 @@ setup_user()
 	useradd -c "HPC User" -g $HPC_GROUP -m -d $SHARE_HOME/$HPC_USER -s /bin/bash -u $HPC_UID $HPC_USER
 
 	mkdir -p $SHARE_HOME/$HPC_USER/.ssh
-	
+
 	# Configure public key auth for the HPC user
 	ssh-keygen -t rsa -f $SHARE_HOME/$HPC_USER/.ssh/id_rsa -q -P ""
 	cat $SHARE_HOME/$HPC_USER/.ssh/id_rsa.pub >> $SHARE_HOME/$HPC_USER/.ssh/authorized_keys
