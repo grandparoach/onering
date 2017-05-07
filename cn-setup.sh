@@ -1,11 +1,15 @@
 #!/bin/bash
 
 Master_Name=$1
+echo $Master_Name
 
 # Shares
 SHARE_HOME=/share/home
 NFS_ON_MASTER=/share/data
 NFS_MOUNT=/share/data
+
+mkdir -p /share
+mkdir -p $SHARE_HOME
 
 # User
 HPC_USER=hpcuser
@@ -31,11 +35,7 @@ mount_nfs()
 
 
 setup_user()
-{
-	yum -y install nfs-utils nfs-utils-lib
-
-    mkdir -p $SHARE_HOME
-    mkdir -p $NFS_ON_MASTER
+{  
 
 	echo "$MASTER_NAME:$SHARE_HOME $SHARE_HOME    nfs4    rw,auto,_netdev 0 0" >> /etc/fstab
 	mount -a
@@ -54,7 +54,8 @@ setup_user()
     chown $HPC_USER:$HPC_GROUP $SHARE_DATA	
 }
 
-setup_user
+
 mount_nfs
+setup_user
 
 exit 0
