@@ -122,8 +122,10 @@ setup_user()
     setenforce permissive
     
     groupadd -g $HPC_GID $HPC_GROUP
+    
+    mkdir -p /share
     mkdir -p $SHARE_HOME
-    mkdir -p $SHARE_HOME/$HPC_USER
+    
     
     # Don't require password for HPC user sudo
     echo "$HPC_USER ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
